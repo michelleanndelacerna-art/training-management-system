@@ -1,0 +1,2073 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Training Management System Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --primary-color: #005A9C;
+        --secondary-color: #F8F8F8;
+        --text-dark: #333;
+        --border-color: #E0E0E0;
+        --danger-color: #C62828;
+        --success-color: #2E7D32;
+      }
+      body, html { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background-color: #fff; color: var(--text-dark); height: 100%; }
+      #main-container { display: flex; height: 100vh; overflow: hidden; }
+      #sidebar { width: 250px; background-color: #1A237E; color: #fff; padding: 20px 0; display: flex; flex-direction: column; flex-shrink: 0; }
+      #sidebar h1 { text-align: center; margin-top: 0; padding-bottom: 20px; border-bottom: 1px solid #3F51B5; }
+      .nav-button { background: none; border: none; color: #fff; padding: 15px 25px; text-align: left; font-size: 16px; cursor: pointer; width: 100%; transition: background-color: 0.3s; }
+      .nav-button:hover, .nav-button.active { background-color: #3F51B5; }
+      #content-area { flex-grow: 1; padding: 40px; background-color: var(--secondary-color); overflow-y: auto; }
+      h2 { color: var(--primary-color); margin-top: 0; }
+      h3 { color: var(--primary-color); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 30px; }
+      .form-container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+      .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
+      .form-group { display: flex; flex-direction: column; }
+      label { font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #555; }
+      .required::after { content: ' *'; color: var(--danger-color); }
+      .select-container { position: relative; z-index: 2; }
+      .select-input, input[type="text"], input[type="date"], input[type="time"], input[type="number"], select { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; width: 100%; box-sizing: border-box; background-color: #fff; }
+      .select-dropdown { position: absolute; width: 100%; max-height: 200px; overflow-y: auto; background-color: #fff; border: 1px solid var(--border-color); border-top: none; z-index: 1001; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); display: none; }
+      .select-dropdown.open { display: block; }
+      .dropdown-option { padding: 12px; cursor: pointer; font-size: 14px; }
+      .dropdown-option:hover { background-color: var(--secondary-color); }
+      input:read-only, select:disabled { background-color: #f4f4f4; cursor: not-allowed; }
+      #employee-search-container { grid-column: 1 / -1; display: flex; gap: 10px; margin-top: 15px; align-items: center; }
+      .action-button, .row-action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 25px; background-color: var(--primary-color); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background-color: 0.3s; }
+      .action-button:hover { background-color: #004d85; }
+      .action-button:disabled, .row-action-btn:disabled { background-color: #aaa; cursor: not-allowed; }
+      .action-button.danger, .row-action-btn.danger { background-color: var(--danger-color); }
+      .action-button.danger:hover, .row-action-btn.danger:hover { background-color: #a92020; }
+      .row-action-btn { font-size: 12px; padding: 6px 10px; margin: 0 2px; }
+      .row-action-btn.save { background-color: var(--success-color); }
+      .row-action-btn.save:hover { background-color: #236526; }
+      .hidden { display: none; }
+      .spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 3px solid #fff; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 25px;
+        table-layout: auto;
+      }
+      .data-table th, .data-table td {
+        border: 1px solid var(--border-color);
+        padding: 12px;
+        text-align: left;
+        vertical-align: middle;
+        word-wrap: break-word;
+      }
+
+      .data-table th { background-color: #E0E0E0; color: var(--text-dark); }
+      .data-table tbody tr:hover { background-color: #f9f9f9; }
+      .data-table tbody tr.is-new td { background-color: #e8f5e9; }
+      .data-table tbody tr.is-deleted td { background-color: #ffeb-ee; text-decoration: line-through; color: #999; }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+      .status-message { text-align: center; margin-top: 20px; padding: 15px; border-radius: 6px; font-weight: 500; display: none; }
+      .status-message.success { display: block; background-color: #E8F5E9; color: var(--success-color); }
+      .status-message.error { display: block; background-color: #FFEBEE; color: var(--danger-color); }
+      .kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+      .card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
+      .card:hover { transform: translateY(-5px); }
+      .card h4 { margin-top: 0; color: #555; }
+      .card p { font-size: 24px; font-weight: 600; margin-bottom: 0; color: var(--primary-color); }
+      .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+      .chart-wrapper { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .records-filter-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; margin-bottom: 25px; align-items: flex-end; }
+      #edit-session-form-container { display: none; margin-top: 20px; border-top: 2px solid var(--border-color); padding-top: 20px; }
+      .edit-actions { display: flex; gap: 10px; margin-top: 20px; }
+      #add-participant-container { display: none; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px; margin-top: 20px; background-color: #fafafa; }
+      .add-participant-grid { display: flex; gap: 10px; align-items: flex-end; }
+      .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
+      .modal-content { background-color: #fff; padding: 30px; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+      .modal-header h4 { margin: 0; color: var(--primary-color); font-size: 20px; }
+      .modal-body { 
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+      .modal-body .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
+      .modal-footer { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 20px; margin-top: 30px; }
+
+      .modal-loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1002;
+      }
+      .modal-loading-overlay.active {
+        display: flex;
+      }
+      .modal-loading-spinner {
+        border: 4px solid var(--border-color);
+        border-radius: 50%;
+        border-top: 4px solid var(--primary-color);
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      
+      #edit-participants-table th, #edit-participants-table td {
+        min-width: 80px;
+      }
+      
+      #itr-results-container {
+        position: relative;
+        z-index: 1;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="main-container">
+      <div id="sidebar">
+        <h1>Training Management System</h1>
+        <button class="nav-button active" onclick="openTab('dashboard', this)">Dashboard</button>
+        <button class="nav-button" onclick="openTab('batch-encoding', this)">Batch Encoding</button>
+        <button class="nav-button" onclick="openTab('records-management', this)">Records Management</button>
+        <button class="nav-button" onclick="openTab('individual-training-record', this)">Individual Training Record</button>
+        <button class="nav-button" onclick="openTab('participants-list', this)">Participants List</button>
+      </div>
+      <div id="content-area">
+
+        <div id="dashboard" class="tab-content active">
+          <h2>Training Dashboard</h2>
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <label for="date-range-filter" style="margin: 0;">Filter by Date:</label>
+            <select id="date-range-filter" style="padding: 8px; border-radius: 6px;">
+              <option value="all">All Time</option>
+              <option value="quarter">This Quarter</option>
+              <option value="year">This Year</option>
+            </select>
+          </div>
+          <div class="kpi-cards">
+            <div class="card"><h4>Total Trainings</h4><p id="kpi-total-trainings">0</p></div>
+            <div class="card"><h4>Total Participants</h4><p id="kpi-total-participants">0</p></div>
+            <div class="card"><h4>Total Training Hours</h4><p id="kpi-total-hours">0</p></div>
+            <div class="card"><h4>Total Cost</h4><p id="kpi-total-cost">₱0.00</p></div>
+          </div>
+          <div class="charts-container">
+            <div class="chart-wrapper"><h3>Participants by Category</h3><canvas id="categoryChart"></canvas></div>
+            <div class="chart-wrapper"><h3>Trainings by Conduct</h3><canvas id="conductChart"></canvas></div>
+            <div class="chart-wrapper"><h3>Training Hours by Department</h3><canvas id="deptChart"></canvas></div>
+          </div>
+          <div class="form-container" style="margin-top: 30px;">
+            <h3>Upcoming Trainings (Next 30 Days)</h3>
+            <table class="data-table" id="upcoming-trainings-table">
+              <thead><tr><th>Training Course</th><th>Date Started</th><th>Venue</th></tr></thead>
+              <tbody><tr><td colspan="3" style="text-align:center;">No upcoming trainings.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="batch-encoding" class="tab-content">
+          <h2>Training Batch Encoding</h2>
+          <div class="form-container">
+            <form id="training-form" class="form-grid"></form>
+            <div id="employee-search-container">
+              <div style="position: relative; flex-grow: 1;">
+                <input type="text" id="employee-search-input" class="select-input" placeholder="Search employee by Code or Name">
+                <div id="employee-search-dropdown" class="select-dropdown"></div>
+              </div>
+              <button type="button" id="add-employee-btn" class="action-button" disabled>Add Employee</button>
+              <button type="button" id="manual-entry-batch-btn" class="action-button" style="background-color: #555;">Manual Entry</button>
+            </div>
+            <table id="selected-employees-table" class="data-table">
+              <thead><tr><th>No.</th><th>Employee Code</th><th>Name</th><th>Plant</th><th>Status</th><th>Completion</th><th>Passed</th><th>Employment</th><th>Action</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <button id="submit-btn" class="action-button" style="width: 100%; margin-top: 25px;">Submit Training Records</button>
+            <div id="status-message" class="status-message"></div>
+          </div>
+        </div>
+
+        <div id="records-management" class="tab-content">
+          <h2>Records Management</h2>
+          <div class="form-container">
+            <div class="records-filter-grid">
+              <div class="select-container">
+                <label for="records-course-input">Training Course</label>
+                <input type="text" id="records-course-input" class="select-input" placeholder="Search training course">
+                <div id="records-course-dropdown" class="select-dropdown"></div>
+              </div>
+              <div class="select-container">
+                <label for="records-date-input">Date Started</label>
+                <input type="text" id="records-date-input" class="select-input" placeholder="Select a date" disabled>
+                <div id="records-date-dropdown" class="select-dropdown"></div>
+              </div>
+              <button id="records-search-btn" class="action-button" disabled>View Records</button>
+            </div>
+            <div id="records-list-container">
+              <table id="records-table" class="data-table">
+                <thead>
+                  <tr>
+                    <th>Training Course</th>
+                    <th>Date Started</th>
+                    <th>Facilitator</th>
+                    <th>Participants</th>
+                    <th>Total Hrs</th>
+                    <th>Cost</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colspan="7" style="text-align: center;">Select a training from the dropdowns to view records.</td></tr>
+                </tbody>
+              </table>
+              <div id="records-status-message" class="status-message"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="individual-training-record" class="tab-content">
+          <h2>Individual Training Record</h2>
+          <div class="form-container">
+            <div class="records-filter-grid" style="grid-template-columns: 1fr auto;">
+              <div class="form-group select-container">
+                <label for="itr-search-input">Search by Employee Number or Name</label>
+                <input type="text" id="itr-search-input" class="select-input" placeholder="Enter employee number or name">
+                <div id="itr-search-dropdown" class="select-dropdown"></div>
+              </div>
+              <button id="itr-view-record-btn" class="action-button">View Record</button>
+            </div>
+            <div id="itr-status-message" class="status-message"></div>
+            <div id="itr-results-container" class="hidden">
+              <h3>Employee Information</h3>
+              <div class="form-grid" id="itr-employee-info">
+                </div>
+              <h3>Training History</h3>
+              <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 15px;">
+                <button id="itr-export-pdf-btn" class="action-button" style="background-color: #C62828;" disabled>Export to PDF</button>
+                <button id="itr-export-sheet-btn" class="action-button" style="background-color: #2E7D32;" disabled>Export to Google Sheet</button>
+              </div>
+              <table id="itr-training-history-table" class="data-table">
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Course Title</th>
+                    <th>Training Started</th>
+                    <th>Training Ended</th>
+                    <th>Training Duration</th>
+                    <th>Facilitator</th>
+                    <th>Training Category</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="participants-list" class="tab-content">
+          <h2>Participants List</h2>
+          <div class="form-container">
+            <div class="records-filter-grid">
+              <div class="select-container">
+                <label for="participants-course-input">Training Course</label>
+                <input type="text" id="participants-course-input" class="select-input" placeholder="Search training course">
+                <div id="participants-course-dropdown" class="select-dropdown"></div>
+              </div>
+              <div class="select-container">
+                <label for="participants-date-input">Training Date</label>
+                <select id="participants-date-input" class="select-input" disabled>
+                  <option value="">Select a course first</option>
+                </select>
+              </div>
+              <button id="participants-search-btn" class="action-button" disabled>View Participants</button>
+            </div>
+            <div id="participants-list-container">
+              <table id="participants-table" class="data-table">
+                <thead>
+                  <tr>
+                    <th>No.</th>
+                    <th>Employee Number</th>
+                    <th>Employee Name</th>
+                    <th>Work Location</th>
+                    <th>FA/BU</th>
+                    <th>Position</th>
+                    <th>Level</th>
+                    <th>Company Name</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colspan="9" style="text-align: center;">Select a training course and date to view participants.</td></tr>
+                </tbody>
+              </table>
+              <div id="participants-status-message" class="status-message"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="batch-scores-modal" class="modal-backdrop">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4>Add Participant Scores</h4>
+          <button type="button" style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeBatchScoresModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Adding scores for: <strong id="batch-modal-employee-name"></strong></p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="batch-modal-pre-test-score">Pre-Test Score</label>
+              <input type="number" id="batch-modal-pre-test-score">
+            </div>
+            <div class="form-group">
+              <label for="batch-modal-pre-test-total">Pre-Test Total Items</label>
+              <input type="number" id="batch-modal-pre-test-total">
+            </div>
+            <div class="form-group">
+              <label for="batch-modal-post-test-score">Post-Test Score</label>
+              <input type="number" id="batch-modal-post-test-score">
+            </div>
+            <div class="form-group">
+              <label for="batch-modal-post-test-total">Post-Test Total Items</label>
+              <input type="number" id="batch-modal-post-test-total">
+            </div>
+            <div class="form-group">
+              <label for="batch-modal-final-rating-value">Rating Value</label>
+              <input type="text" id="batch-modal-final-rating-value" readonly style="background-color: #e9ecef; font-weight: bold;">
+            </div>
+            <div class="form-group">
+              <label for="batch-modal-final-rating-remark">Rating Remark</label>
+              <input type="text" id="batch-modal-final-rating-remark" readonly style="background-color: #e9ecef; font-weight: bold;">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="action-button danger" onclick="closeBatchScoresModal()">Cancel</button>
+          <button type="button" id="batch-modal-save-btn" class="action-button">Save Scores</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="edit-training-modal" class="modal-backdrop">
+      <div class="modal-content" style="max-width: 90vw; width: 1200px;">
+        <div id="edit-modal-loading" class="modal-loading-overlay">
+          <div class="modal-loading-spinner"></div>
+        </div>
+
+        <div class="modal-header">
+          <h4>Edit Training Record</h4>
+          <button type="button" style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeEditTrainingModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-training-form" class="form-grid"></form>
+          <div style="margin-top: 20px;">
+            <h3>Participants</h3>
+            <div id="edit-participants-section">
+              <table id="edit-participants-table" class="data-table">
+                <thead><tr><th>Employee Code</th><th>Name</th><th>Completion</th><th>Passed</th><th>Employment</th><th>Pre-test</th><th>Post-test</th><th>Final Rating</th><th>Rating Remark</th><th>Scores</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-end; margin-top: 20px;">
+              <div class="select-container" style="flex-grow: 1;">
+                <input type="text" id="edit-employee-search-input" class="select-input" placeholder="Add new participant by Code or Name">
+                <div id="edit-employee-search-dropdown" class="select-dropdown"></div>
+              </div>
+              <button type="button" id="edit-add-employee-btn" class="action-button" disabled>Add Participant</button>
+              <button type="button" id="manual-entry-edit-btn" class="action-button" style="background-color: #555;">Manual Entry</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="action-button danger" onclick="closeEditTrainingModal()">Cancel</button>
+          <button type="button" id="save-edit-btn" class="action-button">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="edit-participant-scores-modal" class="modal-backdrop">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4>Edit Scores for <span id="edit-participant-name"></span></h4>
+          <button type="button" style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeEditParticipantScoresModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-pre-test-score">Pre-Test Score</label>
+              <input type="number" id="edit-pre-test-score">
+            </div>
+            <div class="form-group">
+              <label for="edit-pre-test-total">Pre-Test Total Items</label>
+              <input type="number" id="edit-pre-test-total">
+            </div>
+            <div class="form-group">
+              <label for="edit-post-test-score">Post-Test Score</label>
+              <input type="number" id="edit-post-test-score">
+            </div>
+            <div class="form-group">
+              <label for="edit-post-test-total">Post-Test Total Items</label>
+              <input type="number" id="edit-post-test-total">
+            </div>
+            <div class="form-group">
+              <label for="edit-final-rating-value">Rating Value</label>
+              <input type="text" id="edit-final-rating-value" readonly style="background-color: #e9ecef; font-weight: bold;">
+            </div>
+            <div class="form-group">
+              <label for="edit-final-rating-remark">Rating Remark</label>
+              <input type="text" id="edit-final-rating-remark" readonly style="background-color: #e9ecef; font-weight: bold;">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="action-button danger" onclick="closeEditParticipantScoresModal()">Cancel</button>
+          <button type="button" id="save-participant-scores-btn" class="action-button">Save Scores</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="manual-entry-modal" class="modal-backdrop">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4>Manual Participant Entry</h4>
+          <button type="button" style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeManualEntryModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="manual-emp-code" class="required">Employee Code</label>
+              <input type="text" id="manual-emp-code">
+            </div>
+            <div class="form-group">
+              <label for="manual-last-name" class="required">Last Name</label>
+              <input type="text" id="manual-last-name">
+            </div>
+             <div class="form-group">
+              <label for="manual-first-name" class="required">First Name</label>
+              <input type="text" id="manual-first-name">
+            </div>
+            <div class="form-group">
+              <label for="manual-middle-name">Middle Name</label>
+              <input type="text" id="manual-middle-name">
+            </div>
+            <div class="form-group">
+              <label for="manual-plant-input" class="required">Plant / Work Location</label>
+              <div class="select-container">
+                 <input type="text" id="manual-plant-input" class="select-input" placeholder="Select or type a Plant">
+                 <div id="manual-plant-dropdown" class="select-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="manual-company-input" class="required">Company Name</label>
+              <div class="select-container">
+                 <input type="text" id="manual-company-input" class="select-input" placeholder="Select or type a Company">
+                 <div id="manual-company-dropdown" class="select-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="manual-position-input" class="required">Position</label>
+              <div class="select-container">
+                 <input type="text" id="manual-position-input" class="select-input" placeholder="Select or type a Position">
+                 <div id="manual-position-dropdown" class="select-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="manual-fabu-input" class="required">FA/BU</label>
+              <div class="select-container">
+                 <input type="text" id="manual-fabu-input" class="select-input" placeholder="Select or type an FA/BU">
+                 <div id="manual-fabu-dropdown" class="select-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="manual-dept-input" class="required">Department</label>
+              <div class="select-container">
+                 <input type="text" id="manual-dept-input" class="select-input" placeholder="Select or type a Department">
+                 <div id="manual-dept-dropdown" class="select-dropdown"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="action-button danger" onclick="closeManualEntryModal()">Cancel</button>
+          <button type="button" id="manual-save-btn" class="action-button" onclick="handleSaveManualEntry()">Add Participant</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let referenceData = {}, allEmployees = [], allCourseNames = [];
+      let categoryChart, conductChart, deptChart;
+      let currentEditTraining = {};
+      let currentITRData = {}; // To store the currently viewed employee's data
+      let currentParticipants = [];
+      let manualEntryContext = ''; // 'batch' or 'edit'
+      
+      const formFields = [
+        { key: 'trainingcourse', id: 'training-course', label: 'Training Course', required: true, dynamic: true },
+        { key: 'trainingtype', id: 'training-type', label: 'Training Type', required: true, dynamic: true },
+        { key: 'trainingclassification', id: 'training-classification', label: 'Training Classification', required: true, dynamic: true },
+        { key: 'trainingcategory', id: 'training-category', label: 'Training Category', required: true, dynamic: true },
+        { key: 'typeofconduct', id: 'type-of-conduct', label: 'Type of Conduct', required: true, dynamic: true },
+        { key: 'typeoftraining', id: 'type-of-training', label: 'Type of Training', required: true, dynamic: true },
+        { key: 'trainingfacilitator', id: 'training-facilitator', label: 'Training Facilitator', required: true, dynamic: true },
+        { key: 'trainingvenue', id: 'training-venue', label: 'Training Venue', required: true, dynamic: true },
+        { key: 'datestarted', id: 'date-started', label: 'Date Started', type: 'date', required: true },
+        { key: 'dateended', id: 'date-ended', label: 'Date Ended', type: 'date', required: true },
+        { key: 'trainingpurpose', id: 'training-purpose', label: 'Training Purpose', required: true, dynamic: true },
+        { key: 'timestarted', id: 'time-started', label: 'Time Started', type: 'time', required: true },
+        { key: 'timeended', id: 'time-ended', label: 'Time Ended', type: 'time', required: true },
+        { key: 'breakhours', id: 'break-hours', label: 'Break Hours', type: 'number' },
+        { key: 'totalhrs', id: 'total-hrs', label: 'Total Hrs', type: 'number', readonly: true },
+        { key: 'cost', id: 'cost', label: 'Cost', type: 'number' },
+        { key: 'evaluationresult', id: 'evaluation-result', label: 'Evaluation Result', type: 'number' },
+        { key: 'evaluationrating', id: 'evaluation-rating', label: 'Evaluation Rating', dynamic: true, readonly: true },
+        { key: 'trainingstatus', id: 'training-status', label: 'Training Status', required: true, dynamic: true }
+      ];
+      const employeeRecords = {};
+      const editedParticipants = { toAdd: {}, toDelete: new Set() };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        loadReferenceData();
+        loadAllEmployees();
+        loadAllCourses();
+        setupEventListeners();
+        openTab('dashboard', document.querySelector('.nav-button'));
+        loadDashboardData('all');
+      });
+      
+      function loadAllCourses() {
+        google.script.run
+          .withSuccessHandler(courses => {
+            allCourseNames = courses;
+          })
+          .searchTrainingSessions('');
+      }
+
+      function simpleCamelCase(str) {
+        if (!str || typeof str !== 'string') return '';
+        return str.toLowerCase().replace(/\s+/g, '').replace(/\W/g, '');
+      }
+
+      function loadReferenceData() {
+        google.script.run
+          .withSuccessHandler(data => {
+            referenceData = data;
+            setupFormFields('training-form', '');
+          })
+          .getReferenceData();
+      }
+      
+      function loadAllEmployees() {
+        google.script.run.withSuccessHandler(employees => {
+          allEmployees = employees;
+        }).searchEmployees();
+      }
+      
+      function setupFormFields(formId, idPrefix, initialData = {}) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        form.innerHTML = '';
+        formFields.forEach(field => {
+          const fieldId = idPrefix + field.id;
+          const formGroup = document.createElement('div');
+          formGroup.className = 'form-group';
+          const label = document.createElement('label');
+          label.htmlFor = fieldId;
+          label.textContent = field.label;
+          if (field.required) label.className = 'required';
+          let inputElement;
+          
+          if (field.dynamic) {
+            const selectContainer = document.createElement('div');
+            selectContainer.className = 'select-container';
+            inputElement = document.createElement('input');
+            inputElement.type = 'text';
+            inputElement.className = 'select-input';
+            inputElement.placeholder = `Select or type a ${field.label.toLowerCase()}`;
+            if (field.readonly) inputElement.readOnly = true;
+            const dropdown = document.createElement('div');
+            dropdown.className = 'select-dropdown';
+            dropdown.id = fieldId + '-dropdown';
+            selectContainer.appendChild(inputElement);
+            selectContainer.appendChild(dropdown);
+            formGroup.appendChild(label);
+            formGroup.appendChild(selectContainer);
+          } else if (field.type === 'select') {
+            inputElement = document.createElement('select');
+            field.options.forEach(optionText => {
+              inputElement.add(new Option(optionText, optionText));
+            });
+            formGroup.appendChild(label);
+            formGroup.appendChild(inputElement);
+          } else {
+            inputElement = document.createElement('input');
+            inputElement.type = field.type || 'text';
+            if (field.readonly) inputElement.readOnly = true;
+            if (field.type === 'number') inputElement.step = 'any';
+            formGroup.appendChild(label);
+            formGroup.appendChild(inputElement);
+          }
+          if (inputElement) {
+            inputElement.id = fieldId;
+            if (field.required) inputElement.required = true;
+
+            let value = initialData[field.key];
+            if (value !== undefined && value !== null) {
+              if (field.type === 'date' && value) {
+                const parts = String(value).split('/');
+                if (parts.length === 3) {
+                  value = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`; // yyyy-MM-dd
+                }
+              }
+              inputElement.value = value;
+            }
+          }
+          form.appendChild(formGroup);
+        });
+        
+        formFields.filter(f => f.dynamic).forEach(field => {
+          const input = document.getElementById(idPrefix + field.id);
+          const dropdown = document.getElementById(idPrefix + field.id + '-dropdown');
+          if (!input || !dropdown) return;
+          
+          const selectContainer = input.parentElement;
+          const dataKey = field.label.toUpperCase();
+          if (referenceData[dataKey]) populateDropdown(dropdown, referenceData[dataKey]);
+
+          const openDropdown = () => {
+            if (input.readOnly) return;
+            // Reset z-index for all other select containers within the same form
+            form.querySelectorAll('.select-container').forEach(c => c.style.zIndex = '2');
+            // Elevate the current one
+            selectContainer.style.zIndex = '3';
+            filterDropdown(input, dropdown, referenceData[dataKey]);
+            dropdown.classList.add('open');
+          };
+
+          input.addEventListener('input', openDropdown);
+          input.addEventListener('focus', openDropdown);
+          input.addEventListener('click', openDropdown);
+
+          input.addEventListener('blur', () => {
+            // Use a timeout to allow click on dropdown options
+            setTimeout(() => {
+              dropdown.classList.remove('open');
+              // Reset z-index after dropdown is closed
+              selectContainer.style.zIndex = '2';
+            }, 200);
+          });
+
+          dropdown.addEventListener('mousedown', (e) => selectOption(e, input, dropdown));
+        });
+
+        setupTimeCalculationListeners(idPrefix);
+        setupEvaluationRatingListener(idPrefix);
+      }
+
+      function populateDropdown(dropdown, values) {
+        dropdown.innerHTML = '';
+        (values || []).forEach(value => {
+          const option = document.createElement('div');
+          option.className = 'dropdown-option';
+          option.textContent = value;
+          option.dataset.value = value;
+          dropdown.appendChild(option);
+        });
+      }
+
+      function selectOption(e, input, dropdown) {
+        if (e.target.classList.contains('dropdown-option')) {
+          e.preventDefault();
+          input.value = e.target.textContent;
+          dropdown.classList.remove('open');
+        }
+      }
+
+      function filterDropdown(input, dropdown, data) {
+        const query = input.value.toLowerCase();
+        dropdown.innerHTML = '';
+        const filteredValues = (data || []).filter(value => input.value ? String(value).toLowerCase().includes(query) : true);
+        populateDropdown(dropdown, filteredValues);
+      }
+      
+      function setupTimeCalculationListeners(prefix) {
+        // --- START: New Validation Logic ---
+        const startDateInput = document.getElementById(prefix + 'date-started');
+        const endDateInput = document.getElementById(prefix + 'date-ended');
+
+        const validateDates = () => {
+          if (startDateInput.value && endDateInput.value) {
+            if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
+              endDateInput.setCustomValidity('"Date Ended" cannot be before "Date Started".');
+            } else {
+              endDateInput.setCustomValidity('');
+            }
+          } else {
+            endDateInput.setCustomValidity('');
+          }
+          // We call reportValidity() to show the message immediately if the input is invalid
+          endDateInput.reportValidity(); 
+        };
+
+        if (startDateInput) startDateInput.addEventListener('input', validateDates);
+        if (endDateInput) endDateInput.addEventListener('input', validateDates);
+        // --- END: New Validation Logic ---
+
+        ['date-started', 'date-ended', 'time-started', 'time-ended', 'break-hours'].forEach(id => {
+          const el = document.getElementById(prefix + id);
+          // We also run calculateTotalHours here from the original function
+          if (el) el.addEventListener('input', () => calculateTotalHours(prefix)); 
+        });
+      }
+
+      function calculateTotalHours(prefix = '') {
+        const startDateStr = document.getElementById(prefix + 'date-started').value;
+        const endDateStr = document.getElementById(prefix + 'date-ended').value;
+        const startTime = document.getElementById(prefix + 'time-started').value;
+        const endTime = document.getElementById(prefix + 'time-ended').value;
+        const breakHours = parseFloat(document.getElementById(prefix + 'break-hours').value) || 0;
+        const totalHrsInput = document.getElementById(prefix + 'total-hrs');
+        if (!totalHrsInput) return;
+        if (startDateStr && endDateStr && startTime && endTime) {
+          const startDate = new Date(startDateStr);
+          const endDate = new Date(endDateStr);
+          const dayDifference = (endDate - startDate) / (1000 * 60 * 60 * 24);
+          const numberOfDays = dayDifference >= 0 ? dayDifference + 1 : 0;
+          const startDateTime = new Date(`1970-01-01T${startTime}:00`);
+          const endDateTime = new Date(`1970-01-01T${endTime}:00`);
+          let hoursPerDay = (endDateTime - startDateTime) / 36e5;
+          if (hoursPerDay < 0) hoursPerDay = 0;
+          const dailyTrainingHours = hoursPerDay - breakHours;
+          const totalHours = dailyTrainingHours * numberOfDays;
+          totalHrsInput.value = totalHours > 0 ? totalHours.toFixed(2) : '0.00';
+        } else {
+          totalHrsInput.value = '';
+        }
+      }
+
+      function setupEvaluationRatingListener(prefix) {
+        const resultInput = document.getElementById(prefix + 'evaluation-result');
+        const ratingInput = document.getElementById(prefix + 'evaluation-rating');
+        if (resultInput && ratingInput) {
+          resultInput.addEventListener('input', () => {
+            const score = parseFloat(resultInput.value);
+            if (isNaN(score)) {
+              ratingInput.value = ''; return;
+            }
+            if (score >= 4.50) ratingInput.value = 'VERY SATISFACTORY';
+            else if (score >= 3.50) ratingInput.value = 'SATISFACTORY';
+            else if (score >= 2.50) ratingInput.value = 'GOOD';
+            else if (score >= 1.50) ratingInput.value = 'NEEDS IMPROVEMENT';
+            else ratingInput.value = 'POOR';
+          });
+        }
+      }
+
+      function setupEventListeners() {
+        document.getElementById('add-employee-btn').addEventListener('click', handleAddEmployee);
+        document.getElementById('submit-btn').addEventListener('click', handleSubmit);
+        document.getElementById('records-search-btn').addEventListener('click', () => {
+          const course = document.getElementById('records-course-input').value;
+          const date = document.getElementById('records-date-input').value;
+          if (course && date) {
+              const sessionDetails = { trainingcourse: course, datestarted: date };
+              viewTrainingSessionDetails(sessionDetails);
+          } else {
+              showStatusMessage('records', 'Please select a training course and a date.', 'error');
+          }
+        });
+        const employeeSearchInput = document.getElementById('employee-search-input');
+        employeeSearchInput.addEventListener('input', () => handleEmployeeSearch(employeeSearchInput.value, 'employee-search-dropdown', 'add-employee-btn'));
+        employeeSearchInput.addEventListener('focus', () => handleEmployeeSearch(employeeSearchInput.value, 'employee-search-dropdown', 'add-employee-btn'));
+        employeeSearchInput.addEventListener('blur', () => setTimeout(() => document.getElementById('employee-search-dropdown').classList.remove('open'), 300));
+        document.getElementById('date-range-filter').addEventListener('change', (e) => loadDashboardData(e.target.value));
+
+        const selectedEmployeesTable = document.getElementById('selected-employees-table');
+        selectedEmployeesTable.addEventListener('click', (e) => {
+            const addScoresBtn = e.target.closest('.add-scores-btn');
+            if (addScoresBtn) {
+              openBatchScoresModal(addScoresBtn.dataset.empCode);
+              return;
+            }
+            const removeBtn = e.target.closest('.remove-btn');
+            if (removeBtn) {
+              const empCode = removeBtn.dataset.empCode;
+              delete employeeRecords[empCode];
+              removeBtn.closest('tr').remove();
+              renumberBatchTable();
+              return;
+            }
+        });
+        
+        selectedEmployeesTable.addEventListener('change', (e) => {
+          if (e.target && e.target.name === 'completionstatus') {
+            const completionValue = e.target.value;
+            const row = e.target.closest('tr');
+            if (!row) return;
+            const passedSelect = row.querySelector('select[name="passed"]');
+            const scoresBtn = row.querySelector('.add-scores-btn');
+
+            const sanitizedValue = String(completionValue).trim().toLowerCase();
+
+            if (sanitizedValue === 'completed') {
+              passedSelect.value = 'YES';
+              scoresBtn.disabled = false;
+            } else if (sanitizedValue === 'incomplete' || sanitizedValue === 'no show') {
+              passedSelect.value = 'NO';
+              scoresBtn.disabled = true;
+            } else if (sanitizedValue === 'completed (no assessment)'){
+              passedSelect.value = 'YES';
+              scoresBtn.disabled = true;
+            } else {  
+              passedSelect.value = 'YES';
+              scoresBtn.disabled = false;
+            }
+          }
+        });
+        
+        const recordsCourseInput = document.getElementById('records-course-input');
+        const recordsCourseDropdown = document.getElementById('records-course-dropdown');
+        const recordsDateInput = document.getElementById('records-date-input');
+        const recordsSearchBtn = document.getElementById('records-search-btn');
+
+        const handleCourseSearch = () => {
+          recordsDateInput.value = '';
+          recordsDateInput.disabled = true;
+          recordsSearchBtn.disabled = true;
+          const query = recordsCourseInput.value.trim().toLowerCase();
+          const filteredCourses = allCourseNames.filter(course =>
+            course.toLowerCase().includes(query)
+          );
+          populateRecordsCourseDropdown(filteredCourses);
+        };
+
+        recordsCourseInput.addEventListener('input', handleCourseSearch);
+        recordsCourseInput.addEventListener('focus', handleCourseSearch);
+        recordsCourseInput.addEventListener('blur', () => {
+          setTimeout(() => recordsCourseDropdown.classList.remove('open'), 200);
+        });
+        
+        recordsCourseDropdown.addEventListener('mousedown', (e) => {
+          if (e.target.classList.contains('dropdown-option')) {
+            e.preventDefault();
+            const selectedCourse = e.target.dataset.value;
+            recordsCourseInput.value = selectedCourse;
+            recordsDateInput.value = '';
+            recordsDateInput.disabled = false;
+            recordsSearchBtn.disabled = true;
+            recordsCourseDropdown.classList.remove('open');
+            getTrainingDates(selectedCourse);
+          }
+        });
+        
+        recordsDateInput.addEventListener('input', () => {
+          recordsSearchBtn.disabled = !(recordsCourseInput.value && recordsDateInput.value);
+        });
+        recordsDateInput.addEventListener('focus', () => {
+          if (recordsCourseInput.value) {
+            getTrainingDates(recordsCourseInput.value);
+            document.getElementById('records-date-dropdown').classList.add('open');
+          }
+        });
+        recordsDateInput.addEventListener('blur', () => setTimeout(() => document.getElementById('records-date-dropdown').classList.remove('open'), 200));
+
+        document.getElementById('records-date-dropdown').addEventListener('mousedown', (e) => {
+          if (e.target.classList.contains('dropdown-option')) {
+            e.preventDefault();
+            recordsDateInput.value = e.target.dataset.value;
+            document.getElementById('records-date-dropdown').classList.remove('open');
+            recordsSearchBtn.disabled = false;
+          }
+        });
+
+        // Event listeners for Manual Entry buttons
+        document.getElementById('manual-entry-batch-btn').addEventListener('click', () => openManualEntryModal('batch'));
+        document.getElementById('manual-entry-edit-btn').addEventListener('click', () => openManualEntryModal('edit'));
+        
+        const itrSearchInput = document.getElementById('itr-search-input');
+        const itrSearchDropdown = document.getElementById('itr-search-dropdown');
+        itrSearchInput.addEventListener('input', () => handleITRTypeAheadSearch(itrSearchInput, itrSearchDropdown));
+        itrSearchInput.addEventListener('blur', () => setTimeout(() => itrSearchDropdown.classList.remove('open'), 200));
+        document.getElementById('itr-view-record-btn').addEventListener('click', handleITRSearch);
+
+        // Participants List Tab
+        const participantsCourseInput = document.getElementById('participants-course-input');
+        const participantsCourseDropdown = document.getElementById('participants-course-dropdown');
+        const participantsDateInput = document.getElementById('participants-date-input');
+        const participantsSearchBtn = document.getElementById('participants-search-btn');
+
+        const handleParticipantsCourseSearch = () => {
+          participantsDateInput.innerHTML = '<option value="">Select a course first</option>';
+          participantsDateInput.disabled = true;
+          participantsSearchBtn.disabled = true;
+          const query = participantsCourseInput.value.trim().toLowerCase();
+          const filteredCourses = allCourseNames.filter(course =>
+            course.toLowerCase().includes(query)
+          );
+          populateDropdown(participantsCourseDropdown, filteredCourses);
+          participantsCourseDropdown.classList.add('open');
+        };
+
+        participantsCourseInput.addEventListener('input', handleParticipantsCourseSearch);
+        participantsCourseInput.addEventListener('focus', handleParticipantsCourseSearch);
+        participantsCourseInput.addEventListener('blur', () => setTimeout(() => participantsCourseDropdown.classList.remove('open'), 200));
+        
+        participantsCourseDropdown.addEventListener('mousedown', (e) => {
+          if (e.target.classList.contains('dropdown-option')) {
+            e.preventDefault();
+            const selectedCourse = e.target.dataset.value;
+            participantsCourseInput.value = selectedCourse;
+            participantsDateInput.disabled = false;
+            participantsSearchBtn.disabled = true;
+            participantsCourseDropdown.classList.remove('open');
+            getTrainingDatesForParticipants(selectedCourse);
+          }
+        });
+
+        participantsDateInput.addEventListener('change', () => {
+          participantsSearchBtn.disabled = !(participantsCourseInput.value && participantsDateInput.value);
+        });
+
+        participantsSearchBtn.addEventListener('click', handleViewParticipants);
+
+        // Export buttons in Individual Training Record
+        document.getElementById('itr-export-pdf-btn').addEventListener('click', handleExportToPdf);
+        document.getElementById('itr-export-sheet-btn').addEventListener('click', handleExportToSheet);
+      }
+
+      function getTrainingDatesForParticipants(courseName) {
+        const dateDropdown = document.getElementById('participants-date-input');
+        dateDropdown.innerHTML = '<option>Loading dates...</option>';
+        google.script.run
+          .withSuccessHandler(dates => {
+            dateDropdown.innerHTML = '<option value="">Select a date</option>';
+            if (dates && dates.length > 0) {
+              dates.forEach(date => {
+                const option = new Option(date, date);
+                dateDropdown.add(option);
+              });
+            } else {
+              dateDropdown.innerHTML = '<option value="">No dates found</option>';
+            }
+          })
+          .getTrainingDatesForCourse(courseName);
+      }
+
+      function handleViewParticipants() {
+        const course = document.getElementById('participants-course-input').value;
+        const date = document.getElementById('participants-date-input').value;
+        const tableBody = document.getElementById('participants-table').querySelector('tbody');
+        const statusMessage = document.getElementById('participants-status-message');
+        const searchBtn = document.getElementById('participants-search-btn');
+
+        if (!course || !date) {
+          statusMessage.textContent = 'Please select a training course and a date.';
+          statusMessage.className = 'status-message error';
+          return;
+        }
+        
+        setButtonLoading(searchBtn, 'Loading...');
+        tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Loading participants...</td></tr>';
+        statusMessage.className = 'status-message';
+
+        google.script.run
+          .withSuccessHandler(participants => {
+            setButtonLoaded(searchBtn, 'View Participants');
+            tableBody.innerHTML = '';
+            if (participants && participants.length > 0) {
+              participants.forEach((p, index) => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = index + 1;
+                row.insertCell().textContent = p.employeeNumber;
+                row.insertCell().textContent = p.employeeName;
+                row.insertCell().textContent = p.workLocation;
+                row.insertCell().textContent = p.fabu;
+                row.insertCell().textContent = p.position;
+                row.insertCell().textContent = p.level;
+                row.insertCell().textContent = p.companyName;
+                const statusCell = row.insertCell();
+                statusCell.textContent = p.status;
+                statusCell.style.color = p.status === 'Active' ? 'green' : 'red';
+              });
+            } else {
+              tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No participants found for this training course and date.</td></tr>';
+            }
+          })
+          .withFailureHandler(err => {
+            setButtonLoaded(searchBtn, 'View Participants');
+            tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
+          })
+          .getParticipantsList(course, date);
+      }
+
+      function handleExportToPdf() {
+        if (!currentITRData.employee) {
+          alert('Please view an employee record before exporting.');
+          return;
+        }
+
+        const pdfBtn = document.getElementById('itr-export-pdf-btn');
+        setButtonLoading(pdfBtn, 'Generating PDF...');
+
+        google.script.run
+          .withSuccessHandler(pdfData => {
+            setButtonLoaded(pdfBtn, 'Export to PDF');
+            if (pdfData && pdfData.data) {
+              const byteCharacters = atob(pdfData.data);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              const blob = new Blob([byteArray], { type: 'application/pdf' });
+              const url = URL.createObjectURL(blob);
+              
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Training_Record_${currentITRData.employee.employeeNumber}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+            } else {
+              alert('Could not generate PDF.');
+            }
+          })
+          .withFailureHandler(err => {
+            setButtonLoaded(pdfBtn, 'Export to PDF');
+            alert(`Error generating PDF: ${err.message}`);
+          })
+          .exportTrainingRecordToPdf(currentITRData.employee, currentITRData.records);
+      }
+
+      function handleExportToSheet() {
+        if (!currentITRData.employee) {
+          alert('Please view an employee record before exporting.');
+          return;
+        }
+        
+        const sheetBtn = document.getElementById('itr-export-sheet-btn');
+        setButtonLoading(sheetBtn, 'Creating Sheet...');
+
+        google.script.run
+          .withSuccessHandler(sheetUrl => {
+            setButtonLoaded(sheetBtn, 'Export to Google Sheet');
+            if (sheetUrl && sheetUrl.url) {
+              window.open(sheetUrl.url, '_blank');
+            } else {
+              alert('Could not create Google Sheet.');
+            }
+          })
+          .withFailureHandler(err => {
+            setButtonLoaded(sheetBtn, 'Export to Google Sheet');
+            alert(`Error creating Google Sheet: ${err.message}`);
+          })
+          .exportTrainingRecordToSheet(currentITRData.employee, currentITRData.records);
+      }
+
+      function handleITRTypeAheadSearch(input, dropdown) {
+        const query = input.value.toLowerCase();
+        dropdown.innerHTML = '';
+        if (query.length < 2) {
+            dropdown.classList.remove('open');
+            return;
+        }
+
+        const filteredEmployees = allEmployees.filter(emp =>
+            (emp.employeeName && emp.employeeName.toLowerCase().includes(query)) ||
+            (emp.employeeCode && emp.employeeCode.toString().toLowerCase().includes(query))
+        ).slice(0, 10);
+
+        if (filteredEmployees.length > 0) {
+            filteredEmployees.forEach(emp => {
+                const option = document.createElement('div');
+                option.className = 'dropdown-option';
+                option.textContent = `${emp.employeeCode} - ${emp.employeeName}`;
+                option.addEventListener('mousedown', () => {
+                    input.value = emp.employeeCode;
+                    dropdown.classList.remove('open');
+                });
+                dropdown.appendChild(option);
+            });
+            dropdown.classList.add('open');
+        } else {
+            dropdown.classList.remove('open');
+        }
+      }
+
+      function handleITRSearch() {
+        const searchTerm = document.getElementById('itr-search-input').value;
+        const statusMessage = document.getElementById('itr-status-message');
+        const resultsContainer = document.getElementById('itr-results-container');
+        const employeeInfoContainer = document.getElementById('itr-employee-info');
+        const trainingHistoryTableBody = document.getElementById('itr-training-history-table').querySelector('tbody');
+        const exportPdfBtn = document.getElementById('itr-export-pdf-btn');
+        const exportSheetBtn = document.getElementById('itr-export-sheet-btn');
+
+        exportPdfBtn.disabled = true;
+        exportSheetBtn.disabled = true;
+
+        if (!searchTerm) {
+          statusMessage.textContent = 'Please enter an employee number or name.';
+          statusMessage.className = 'status-message error';
+          resultsContainer.classList.add('hidden');
+          return;
+        }
+
+        statusMessage.textContent = '';
+        statusMessage.className = 'status-message';
+        resultsContainer.classList.add('hidden');
+        
+        const viewRecordBtn = document.getElementById('itr-view-record-btn');
+        setButtonLoading(viewRecordBtn, 'Searching...');
+
+        google.script.run
+          .withSuccessHandler(data => {
+            setButtonLoaded(viewRecordBtn, 'View Record');
+            currentITRData = {}; // Clear previous data
+            if (!data.employee) {
+              statusMessage.textContent = 'No training record found for this employee.';
+              statusMessage.className = 'status-message error';
+              exportPdfBtn.disabled = true;
+              exportSheetBtn.disabled = true;
+              return;
+            }
+
+            currentITRData = data; // Store the fetched data globally
+
+            statusMessage.textContent = '';
+            statusMessage.className = 'status-message';
+            resultsContainer.classList.remove('hidden');
+
+            // Populate employee info
+            employeeInfoContainer.innerHTML = `
+              <div class="form-group"><label>Employee Number</label><input type="text" value="${data.employee.employeeNumber}" readonly></div>
+              <div class="form-group"><label>Employee Name</label><input type="text" value="${data.employee.employeeName}" readonly></div>
+              <div class="form-group"><label>Department</label><input type="text" value="${data.employee.department}" readonly></div>
+              <div class="form-group"><label>Position</label><input type="text" value="${data.employee.position}" readonly></div>
+              <div class="form-group"><label>FA/BU</label><input type="text" value="${data.employee.fabu}" readonly></div>
+              <div class="form-group"><label>Location</label><input type="text" value="${data.employee.location}" readonly></div>
+            `;
+
+            // Populate training history
+            trainingHistoryTableBody.innerHTML = '';
+            if (data.records.length > 0) {
+              exportPdfBtn.disabled = false;
+              exportSheetBtn.disabled = false;
+              data.records.forEach(record => {
+                const row = trainingHistoryTableBody.insertRow();
+                row.insertCell().textContent = record.no;
+                row.insertCell().textContent = record.courseTitle;
+                row.insertCell().textContent = record.trainingStarted;
+                row.insertCell().textContent = record.trainingEnded;
+                row.insertCell().textContent = record.trainingDuration;
+                row.insertCell().textContent = record.facilitator;
+                row.insertCell().textContent = record.trainingCategory;
+                row.insertCell().textContent = record.remarks;
+              });
+            } else {
+              trainingHistoryTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No training history found for this employee.</td></tr>';
+            }
+          })
+          .withFailureHandler(err => {
+            setButtonLoaded(viewRecordBtn, 'View Record');
+            statusMessage.textContent = `Error: ${err.message}`;
+            statusMessage.className = 'status-message error';
+          })
+          .getIndividualTrainingRecord(searchTerm);
+      }
+
+      function handleEmployeeSearch(query, dropdownId, buttonId) {
+        const dropdown = document.getElementById(dropdownId);
+        dropdown.innerHTML = '';
+        const button = document.getElementById(buttonId);
+        button.disabled = true;
+        button.dataset.employeeCode = '';
+
+        if (query.length > 0) {
+          const filteredResults = allEmployees.filter(emp => (emp.employeeName && emp.employeeName.toLowerCase().includes(query.toLowerCase())) || (emp.employeeCode && emp.employeeCode.toString().toLowerCase().includes(query.toLowerCase()))).slice(0, 10);
+          if (filteredResults.length > 0) {
+            filteredResults.forEach(emp => {
+              const option = document.createElement('div');
+              option.className = 'dropdown-option';
+              option.textContent = `${emp.employeeCode} - ${emp.employeeName} (${emp.workLocation})`;
+              option.addEventListener('mousedown', () => {
+                const searchInput = dropdown.previousElementSibling;
+                searchInput.value = option.textContent;
+                button.dataset.employeeCode = emp.employeeCode;
+                button.disabled = false;
+                dropdown.classList.remove('open');
+              });
+              dropdown.appendChild(option);
+            });
+            dropdown.classList.add('open');
+          } else { dropdown.classList.remove('open'); }
+        } else { dropdown.classList.remove('open'); }
+      }
+
+      function renumberBatchTable() {
+        const tableBody = document.getElementById('selected-employees-table').querySelector('tbody');
+        const rows = tableBody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const firstCell = row.cells[0];
+            if (firstCell) {
+                firstCell.textContent = index + 1;
+            }
+        });
+      }
+
+      function addParticipantToBatchTable(employee) {
+        if (!employee || !employee.employeeCode) return;
+
+        if (employeeRecords[employee.employeeCode]) {
+            alert('This participant is already on the list.');
+            return;
+        }
+
+        employeeRecords[employee.employeeCode] = employee;
+        const tableBody = document.getElementById('selected-employees-table').querySelector('tbody');
+        const newRow = tableBody.insertRow();
+        newRow.dataset.employeeCode = employee.employeeCode;
+
+        newRow.insertCell(); // For the "No." column
+        newRow.insertCell().textContent = employee.employeeCode;
+        newRow.insertCell().textContent = employee.employeeName;
+        newRow.insertCell().textContent = employee.workLocation;
+
+        const statusCell = newRow.insertCell();
+        const isActive = employee.active ? employee.active === 'YES' : true;
+        statusCell.textContent = isActive ? 'Active' : 'Inactive';
+        statusCell.style.color = isActive ? 'green' : 'red';
+        
+        const completionCell = newRow.insertCell();
+        const completionSelect = document.createElement('select');
+        completionSelect.name = 'completionstatus';
+        (referenceData['COMPLETION STATUS'] || []).forEach(opt => completionSelect.add(new Option(opt, opt)));
+        completionCell.appendChild(completionSelect);
+
+        const passedCell = newRow.insertCell();
+        const passedSelect = document.createElement('select');
+        passedSelect.name = 'passed';
+        ['YES', 'NO'].forEach(opt => passedSelect.add(new Option(opt, opt)));
+        passedSelect.value = 'YES';
+        passedCell.appendChild(passedSelect);
+
+        const employmentCell = newRow.insertCell();
+        const employmentSelect = document.createElement('select');
+        employmentSelect.name = 'employmenttype';
+        (referenceData['EMPLOYMENT TYPE'] || []).forEach(opt => employmentSelect.add(new Option(opt, opt)));
+        employmentCell.appendChild(employmentSelect);
+        
+        const actionsCell = newRow.insertCell();
+        actionsCell.innerHTML = `
+            <button type="button" class="row-action-btn add-scores-btn" data-emp-code="${employee.employeeCode}">Add Scores</button>
+            <button type="button" class="row-action-btn danger remove-btn" data-emp-code="${employee.employeeCode}">Remove</button>
+        `;
+        
+        renumberBatchTable();
+      }
+
+      function handleAddEmployee() {
+        const employeeCode = document.getElementById('add-employee-btn').dataset.employeeCode;
+        if (!employeeCode) return;
+        
+        const employee = allEmployees.find(emp => emp.employeeCode.toString() === employeeCode);
+        if (!employee) return;
+
+        addParticipantToBatchTable(employee);
+
+        document.getElementById('employee-search-input').value = '';
+        document.getElementById('add-employee-btn').disabled = true;
+      }
+
+      function handleSubmit() {
+        const form = document.getElementById('training-form');
+        const dateStarted = document.getElementById('date-started').value;
+        const dateEnded = document.getElementById('date-ended').value;
+        if (new Date(dateEnded) < new Date(dateStarted)) { return alert('Error: "Date Ended" cannot be before "Date Started".'); }
+        if (!form.checkValidity()) { return alert('Please fill out all required fields.'); }
+        const tableRows = document.querySelectorAll('#selected-employees-table tbody tr');
+        if (tableRows.length === 0) { return alert('Please add at least one employee.'); }
+        const formData = {};
+        formFields.forEach(field => {
+          const element = document.getElementById(field.id);
+          if (element) { formData[field.key] = element.value; }
+        });
+        
+        const recordsToSave = Array.from(tableRows).map(row => {
+          const empCode = row.dataset.employeeCode;
+          const employee = employeeRecords[empCode];
+          if (!employee) {
+              console.error('Could not find employee data for code:', empCode);
+              return null;
+          }
+          const savedScores = employee.scores || {};
+
+          return {  
+            ...formData,
+            ...savedScores,
+            employeecode: empCode,  
+            employeename: employee.employeeName,  
+            plant: employee.workLocation,
+            companyname: employee.companyName, 
+            position: employee.position,
+            fabu: employee.fabu,
+            dept: employee.dept,
+            completionstatus: row.querySelector('select[name="completionstatus"]').value,  
+            passed: row.querySelector('select[name="passed"]').value,
+            employmenttype: row.querySelector('select[name="employmenttype"]').value
+          };
+        }).filter(record => record !== null);
+
+        if (recordsToSave.length !== tableRows.length) {
+            alert('An error occurred while preparing records. Please check the console.');
+            return;
+        }
+
+        const submitBtn = document.getElementById('submit-btn');
+        setButtonLoading(submitBtn, 'Submitting...');
+        google.script.run
+          .withSuccessHandler(res => {
+            setButtonLoaded(submitBtn, 'Submit Training Records');
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.textContent = res.message;
+            statusMessage.className = 'status-message success';
+            form.reset();
+            document.getElementById('selected-employees-table').querySelector('tbody').innerHTML = '';
+            Object.keys(employeeRecords).forEach(key => delete employeeRecords[key]);
+            
+            loadDashboardData(document.getElementById('date-range-filter').value);
+            loadAllCourses();
+
+            document.getElementById('records-course-input').value = '';
+            document.getElementById('records-date-input').value = '';
+            document.getElementById('records-date-input').disabled = true;
+            document.getElementById('records-search-btn').disabled = true;
+            document.getElementById('records-table').querySelector('tbody').innerHTML = `<tr><td colspan="7" style="text-align: center;">New record saved. Select a training to view records.</td></tr>`;
+          })
+          .withFailureHandler(err => {
+            setButtonLoaded(submitBtn, 'Submit Training Records');
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.textContent = `Error: ${err.message}`;
+            statusMessage.className = 'status-message error';
+          })
+          .saveTrainingRecords(recordsToSave);
+      }
+
+      function setButtonLoading(button, text) {
+        button.disabled = true;
+        button.innerHTML = `<div class="spinner"></div> ${text}`;
+      }
+
+      function setButtonLoaded(button, text) {
+        button.disabled = false;
+        button.innerHTML = text;
+      }
+
+      function loadDashboardData(dateRange){
+        google.script.run.withSuccessHandler(displayDashboardData).getDashboardData(dateRange);
+      }
+
+      function displayDashboardData(data){
+        document.getElementById('kpi-total-trainings').textContent = data.totalTrainings;
+        document.getElementById('kpi-total-participants').textContent = data.totalParticipants;
+        document.getElementById('kpi-total-hours').textContent = data.totalHours;
+        document.getElementById('kpi-total-cost').textContent = `₱${parseFloat(data.totalCost).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const catCtx = document.getElementById('categoryChart').getContext('2d');
+        if(categoryChart) categoryChart.destroy();
+        categoryChart = new Chart(catCtx, { type: 'bar', data: { labels: Object.keys(data.participantsByCategory), datasets: [{ label: '# of Participants', data: Object.values(data.participantsByCategory), backgroundColor: 'rgba(0, 90, 156, 0.7)', borderColor: 'rgba(0, 90, 156, 1)', borderWidth: 1 }] }, options: { scales: { y: { beginAtZero: true } } } });
+        const conCtx = document.getElementById('conductChart').getContext('2d');
+        if(conductChart) conductChart.destroy();
+        conductChart = new Chart(conCtx, { type: 'pie', data: { labels: Object.keys(data.trainingsByConduct), datasets: [{ label: 'Trainings', data: Object.values(data.trainingsByConduct), backgroundColor: ['rgba(0, 90, 156, 0.7)', 'rgba(108, 117, 125, 0.7)', 'rgba(255, 193, 7, 0.7)'], borderColor: ['rgba(0, 90, 156, 1)', 'rgba(108, 117, 125, 1)', 'rgba(255, 193, 7, 1)'], borderWidth: 1 }] } });
+        const deptCtx = document.getElementById('deptChart').getContext('2d');
+        if(deptChart) deptChart.destroy();
+        deptChart = new Chart(deptCtx, { type: 'bar', data: { labels: Object.keys(data.hoursByDept), datasets: [{ label: 'Training Hours', data: Object.values(data.hoursByDept), backgroundColor: 'rgba(76, 175, 80, 0.7)', borderColor: 'rgba(76, 175, 80, 1)', borderWidth: 1 }] }, options: { scales: { y: { beginAtZero: true } } } });
+        const upcomingTableBody = document.getElementById('upcoming-trainings-table').querySelector('tbody');
+        upcomingTableBody.innerHTML = '';
+        if(data.upcomingTrainings.length > 0){
+          data.upcomingTrainings.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            const row = upcomingTableBody.insertRow();
+            row.insertCell().textContent = t.course;
+            row.insertCell().textContent = t.date;
+            row.insertCell().textContent = t.venue;
+          });
+        } else {
+          upcomingTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No upcoming trainings in the next 30 days.</td></tr>';
+        }
+      }
+      
+      function calculateModalFinalRating(prefix) {
+          const preScore = parseFloat(document.getElementById(`${prefix}-pre-test-score`).value);
+          const postScore = parseFloat(document.getElementById(`${prefix}-post-test-score`).value);
+          const preTotal = parseFloat(document.getElementById(`${prefix}-pre-test-total`).value);
+          const postTotal = parseFloat(document.getElementById(`${prefix}-post-test-total`).value);
+          const valueInput = document.getElementById(`${prefix}-final-rating-value`);
+          const remarkInput = document.getElementById(`${prefix}-final-rating-remark`);
+
+          let finalRatingValue = '';
+          let finalRatingRemark = '';
+          if (!isNaN(preScore) && !isNaN(postScore) && preTotal > 0 && postTotal > 0) {
+              const prePercentage = preScore / preTotal;
+              const postPercentage = postScore / postTotal;
+              if (prePercentage === 0 && postPercentage > 0) {
+                  finalRatingValue = (postPercentage * 100).toFixed(2);
+                  finalRatingRemark = 'SCORE';
+              } else if (prePercentage > 0 && postPercentage > prePercentage) {
+                  const improvement = ((postPercentage - prePercentage) / prePercentage) * 100;
+                  finalRatingValue = improvement.toFixed(2);
+                  finalRatingRemark = 'IMPROVEMENT';
+              } else if (postPercentage === prePercentage) {
+                  finalRatingValue = '0.00';
+                  finalRatingRemark = 'NO CHANGE';
+              } else if (prePercentage > postPercentage) {
+                  const decrease = ((prePercentage - postPercentage) / prePercentage) * 100;
+                  finalRatingValue = `-${decrease.toFixed(2)}`;
+                  finalRatingRemark = 'DECREASE';
+              }
+          }
+          valueInput.value = `${finalRatingValue}%`;
+          remarkInput.value = finalRatingRemark;
+          return { value: finalRatingValue, remark: finalRatingRemark };
+      }
+
+      function openBatchScoresModal(employeeCode) {
+        const modal = document.getElementById('batch-scores-modal');
+        const employee = employeeRecords[employeeCode];
+        if (!employee) return;
+
+        document.getElementById('batch-modal-employee-name').textContent = employee.employeeName;
+
+        const scores = employee.scores || {};
+        document.getElementById('batch-modal-pre-test-score').value = scores.pretestscore || '';
+        document.getElementById('batch-modal-pre-test-total').value = scores.pretesttotalitems || '';
+        document.getElementById('batch-modal-post-test-score').value = scores.posttestscore || '';
+        document.getElementById('batch-modal-post-test-total').value = scores.posttesttotalitems || '';
+
+        const saveBtn = document.getElementById('batch-modal-save-btn');
+        saveBtn.onclick = () => saveBatchScores(employeeCode);
+
+        const scoreInputs = [
+            'batch-modal-pre-test-score', 'batch-modal-pre-test-total',
+            'batch-modal-post-test-score', 'batch-modal-post-test-total'
+        ];
+        scoreInputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', () => calculateModalFinalRating('batch-modal'));
+        });
+
+        calculateModalFinalRating('batch-modal');
+        modal.style.display = 'flex';
+      }
+
+      function saveBatchScores(employeeCode) {
+          if (!employeeRecords[employeeCode]) return;
+          
+          employeeRecords[employeeCode].scores = {
+            pretestscore: document.getElementById('batch-modal-pre-test-score').value,
+            pretesttotalitems: document.getElementById('batch-modal-pre-test-total').value,
+            posttestscore: document.getElementById('batch-modal-post-test-score').value,
+            posttesttotalitems: document.getElementById('batch-modal-post-test-total').value
+          };
+
+          const addScoresBtn = document.querySelector(`.add-scores-btn[data-emp-code="${employeeCode}"]`);
+          if (addScoresBtn) {
+              addScoresBtn.textContent = 'Edit Scores';
+              addScoresBtn.style.backgroundColor = 'var(--success-color)';
+          }
+
+          closeBatchScoresModal();
+      }
+
+      function closeBatchScoresModal() {
+          document.getElementById('batch-scores-modal').style.display = 'none';
+      }
+
+      function showStatusMessage(context, message, type) {
+          const statusEl = document.getElementById(`records-status-message`);
+          if (!statusEl) return;
+          statusEl.textContent = message;
+          statusEl.className = `status-message ${type}`;
+          statusEl.style.display = 'block';
+          setTimeout(() => {
+            statusEl.style.display = 'none';
+            statusEl.className = 'status-message';
+          }, 4000);
+      }
+      
+      function openTab(tabId, button) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        if (tabId === 'dashboard') {
+          loadDashboardData(document.getElementById('date-range-filter').value);
+        } else if (tabId === 'records-management') {
+          document.getElementById('records-course-input').value = '';
+          document.getElementById('records-date-input').value = '';
+          document.getElementById('records-date-input').disabled = true;
+          document.getElementById('records-search-btn').disabled = true;
+          document.getElementById('records-table').querySelector('tbody').innerHTML = `<tr><td colspan="7" style="text-align: center;">Select a training from the dropdowns to view records.</td></tr>`;
+        } else if (tabId === 'participants-list') {
+            document.getElementById('participants-course-input').value = '';
+            const dateInput = document.getElementById('participants-date-input');
+            dateInput.innerHTML = '<option value="">Select a course first</option>';
+            dateInput.disabled = true;
+            document.getElementById('participants-search-btn').disabled = true;
+            document.getElementById('participants-table').querySelector('tbody').innerHTML = `<tr><td colspan="9" style="text-align: center;">Select a training course and date to view participants.</td></tr>`;
+        }
+      }
+
+      function populateRecordsCourseDropdown(courses) {
+        const dropdown = document.getElementById('records-course-dropdown');
+        dropdown.innerHTML = '';
+        if (courses.length > 0) {
+            courses.forEach(course => {
+                const option = document.createElement('div');
+                option.className = 'dropdown-option';
+                option.textContent = course;
+                option.dataset.value = course;
+                dropdown.appendChild(option);
+            });
+            dropdown.classList.add('open');
+        } else {
+            dropdown.classList.remove('open');
+        }
+      }
+
+      function getTrainingDates(courseName) {
+          const dropdown = document.getElementById('records-date-dropdown');
+          dropdown.innerHTML = `<div class="dropdown-option">Loading dates...</div>`;
+          dropdown.classList.add('open');
+          google.script.run
+              .withSuccessHandler(dates => {
+                  dropdown.innerHTML = '';
+                  if (dates.length > 0) {
+                      dates.forEach(date => {
+                          const option = document.createElement('div');
+                          option.className = 'dropdown-option';
+                          option.textContent = date;
+                          option.dataset.value = date;
+                          dropdown.appendChild(option);
+                      });
+                  } else {
+                      dropdown.innerHTML = `<div class="dropdown-option">No dates found.</div>`;
+                  }
+              })
+              .withFailureHandler(err => {
+                  console.error("Failed to get dates:", err);
+                  dropdown.innerHTML = `<div class="dropdown-option">Error loading dates.</div>`;
+              })
+              .getTrainingDatesForCourse(courseName);
+      }
+
+      function viewTrainingSessionDetails(selectedSession) {
+          const tableBody = document.getElementById('records-table').querySelector('tbody');
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Loading training details...</td></tr>`;
+          showStatusMessage('records', 'Fetching training records...', 'success');
+
+          google.script.run
+              .withSuccessHandler(participants => {
+                  if (participants && participants.length > 0) {
+                      const groupedSessions = {};
+                      participants.forEach(p => {
+                          const key = `${p.datestarted}|${p.trainingfacilitator}|${p.trainingvenue}`;
+                          if (!groupedSessions[key]) {
+                              groupedSessions[key] = {
+                                  details: { ...p },
+                                  participants: []
+                              };
+                          }
+                          groupedSessions[key].participants.push(p);
+                      });
+                      
+                      displayTrainingSessionTable(Object.values(groupedSessions));
+                      showStatusMessage('records', `Found ${participants.length} participants for the selected training.`, 'success');
+                  } else {
+                      showStatusMessage('records', 'No participants found for this training session.', 'error');
+                      tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center;">No participants found for this training session.</td></tr>`;
+                  }
+              })
+              .withFailureHandler(err => {
+                  showStatusMessage('records', `Error fetching participant data: ${err.message}`, 'error');
+                  tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: red;">Error loading participants.</td></tr>`;
+              })
+              .getTrainingSessionDetails(selectedSession);
+      }
+
+      function displayTrainingSessionTable(trainingSessions) {
+        const tableBody = document.getElementById('records-table').querySelector('tbody');
+        tableBody.innerHTML = '';
+        if (trainingSessions.length === 0 || !trainingSessions[0].details) {
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center;">No records found.</td></tr>`;
+          return;
+        }
+
+        trainingSessions.forEach(training => {
+          const row = tableBody.insertRow();
+          row.insertCell().textContent = training.details.trainingcourse;
+          
+          if (training.details.dateended && training.details.datestarted !== training.details.dateended) {
+            row.insertCell().textContent = `${training.details.datestarted} - ${training.details.dateended}`;
+          } else {
+            row.insertCell().textContent = training.details.datestarted;
+          }
+
+          row.insertCell().textContent = training.details.trainingfacilitator;
+          row.insertCell().textContent = training.participants.length;
+          row.insertCell().textContent = training.details.totalhrs;
+
+          // --- START: New Total Cost Calculation ---
+          const participantCount = training.participants.length;
+          const costPerParticipant = parseFloat(training.details.cost) || 0;
+          const totalCost = costPerParticipant * participantCount;
+          row.insertCell().textContent = `₱${totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          // --- END: New Total Cost Calculation ---
+          
+          const actionsCell = row.insertCell();
+          const encodedRecord = btoa(JSON.stringify(training.details));
+          
+          actionsCell.innerHTML = `
+            <button type="button" class="row-action-btn" onclick="openEditTrainingModal('${encodedRecord}', ${training.participants.length})">Edit</button>
+            <button type="button" class="row-action-btn danger" onclick="deleteTrainingSession('${encodedRecord}')">Delete</button>
+          `;
+        });
+      }
+
+      function openEditTrainingModal(encodedRecord, participantCount) {
+        const modal = document.getElementById('edit-training-modal');
+        const loadingOverlay = document.getElementById('edit-modal-loading');
+        
+        loadingOverlay.classList.add('active');
+        modal.style.display = 'flex';
+        
+        const record = JSON.parse(atob(encodedRecord));
+        currentEditTraining = record;
+        editedParticipants.toAdd = {};
+        editedParticipants.toDelete = new Set();
+        
+        const costPerParticipant = parseFloat(record.cost) || 0;
+        record.cost = costPerParticipant * participantCount;
+
+        setupFormFields('edit-training-form', 'edit-', record);
+        
+        const participantsTableBody = document.getElementById('edit-participants-table').querySelector('tbody');
+        participantsTableBody.innerHTML = `<tr><td colspan="11" style="text-align: center;">Loading participants...</td></tr>`;
+        
+        google.script.run
+            .withSuccessHandler(allParticipants => {
+                currentParticipants = allParticipants;
+                participantsTableBody.innerHTML = '';
+                currentParticipants.forEach(p => addParticipantToEditTable(p));
+                loadingOverlay.classList.remove('active');
+            })
+            .withFailureHandler(err => {
+                showStatusMessage('records', `Error loading participants: ${err.message}`, 'error');
+                participantsTableBody.innerHTML = `<tr><td colspan="11" style="text-align: center;">Error loading participants.</td></tr>`;
+                loadingOverlay.classList.remove('active');
+            })
+            .getTrainingSessionDetails(record);
+      }
+      
+      function addParticipantToEditTable(participant, isNew = false) {
+          const tableBody = document.getElementById('edit-participants-table').querySelector('tbody');
+          const newRow = tableBody.insertRow();
+          newRow.dataset.employeeCode = participant.employeecode;
+          if (isNew) {
+              newRow.classList.add('is-new');
+          }
+          newRow.insertCell().textContent = participant.employeecode;
+          newRow.insertCell().textContent = participant.employeename;
+          
+          const completionCell = newRow.insertCell();
+          const completionSelect = document.createElement('select');
+          completionSelect.name = 'completionstatus';
+          (referenceData['COMPLETION STATUS'] || []).forEach(opt => completionSelect.add(new Option(opt, opt)));
+          completionSelect.value = participant.completionstatus || '';
+          completionCell.appendChild(completionSelect);
+
+          const passedCell = newRow.insertCell();
+          const passedSelect = document.createElement('select');
+          passedSelect.name = 'passed';
+          ['N/A', 'YES', 'NO'].forEach(opt => passedSelect.add(new Option(opt, opt)));
+          passedSelect.value = participant.passed || 'N/A';
+          passedCell.appendChild(passedSelect);
+
+          const employmentCell = newRow.insertCell();
+          const employmentSelect = document.createElement('select');
+          employmentSelect.name = 'employmenttype';
+          (referenceData['EMPLOYMENT TYPE'] || []).forEach(opt => employmentSelect.add(new Option(opt, opt)));
+          employmentSelect.value = participant.employmenttype || '';
+          employmentCell.appendChild(employmentSelect);
+
+          const preTestCell = newRow.insertCell();
+          preTestCell.textContent = participant.pretestscore || '';
+          
+          const postTestCell = newRow.insertCell();
+          postTestCell.textContent = participant.posttestscore || '';
+
+          const finalRatingCell = newRow.insertCell();
+          const finalRatingRemarkCell = newRow.insertCell();
+          
+          const ratingValue = parseFloat(participant.finalrating);
+          if (typeof participant.finalrating === 'number' && !isNaN(ratingValue)) {
+            finalRatingCell.textContent = (ratingValue * 100).toFixed(2) + '%';
+          } else {
+            finalRatingCell.textContent = '';
+          }
+          finalRatingRemarkCell.textContent = participant.finalratingremark || '';
+          
+          const scoresBtnCell = newRow.insertCell();
+          const scoresBtn = document.createElement('button');
+          scoresBtn.type = 'button';
+          scoresBtn.className = 'row-action-btn';
+          scoresBtn.textContent = 'Edit Scores';
+          scoresBtn.addEventListener('click', () => {
+            openEditParticipantScoresModal(participant, preTestCell, postTestCell, finalRatingCell, finalRatingRemarkCell);
+          });
+          scoresBtnCell.appendChild(scoresBtn);
+          
+          const actionsCell = newRow.insertCell();
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'row-action-btn danger';
+          deleteBtn.textContent = 'Remove';
+          deleteBtn.addEventListener('click', () => {
+              if (confirm('Are you sure you want to remove this participant?')) {
+                  deleteBtn.closest('tr').classList.add('is-deleted');
+                  editedParticipants.toDelete.add(participant.employeecode);
+                  delete editedParticipants.toAdd[participant.employeecode];
+              }
+          });
+          actionsCell.appendChild(deleteBtn);
+
+          completionSelect.addEventListener('change', (e) => {
+              const completionValue = e.target.value.trim().toLowerCase();
+              if (completionValue === 'completed') {
+                  passedSelect.value = 'YES';
+                  scoresBtn.disabled = false;
+              } else if (completionValue === 'incomplete' || completionValue === 'no show') {
+                  passedSelect.value = 'NO';
+                  scoresBtn.disabled = true;
+              } else if (completionValue === 'completed (no assessment)') {
+                  passedSelect.value = 'YES';
+                  scoresBtn.disabled = true;
+              } else {
+                  passedSelect.value = 'N/A';
+                  scoresBtn.disabled = false;
+              }
+          });
+          
+          if (completionSelect.value.trim().toLowerCase() === 'completed (no assessment)') {
+            scoresBtn.disabled = true;
+          }
+      }
+
+      function closeEditTrainingModal() {
+        document.getElementById('edit-training-modal').style.display = 'none';
+        currentEditTraining = {};
+        currentParticipants = [];
+        editedParticipants.toAdd = {};
+        editedParticipants.toDelete = new Set();
+        const course = document.getElementById('records-course-input').value;
+        const date = document.getElementById('records-date-input').value;
+        if (course && date) {
+            const sessionDetails = { trainingcourse: course, datestarted: date };
+            viewTrainingSessionDetails(sessionDetails);
+        }
+      }
+      
+      function openEditParticipantScoresModal(participant, preTestCell, postTestCell, finalRatingCell, finalRatingRemarkCell) {
+        const modal = document.getElementById('edit-participant-scores-modal');
+        document.getElementById('edit-participant-name').textContent = participant.employeename;
+        
+        document.getElementById('edit-pre-test-score').value = participant.pretestscore || '';
+        document.getElementById('edit-pre-test-total').value = participant.pretesttotalitems || '';
+        document.getElementById('edit-post-test-score').value = participant.posttestscore || '';
+        document.getElementById('edit-post-test-total').value = participant.posttesttotalitems || '';
+
+        const scoreInputs = ['edit-pre-test-score', 'edit-pre-test-total', 'edit-post-test-score', 'edit-post-test-total'];
+        scoreInputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', () => calculateModalFinalRating('edit'));
+        });
+        
+        document.getElementById('save-participant-scores-btn').onclick = () => saveEditParticipantScores(
+          participant, preTestCell, postTestCell, finalRatingCell, finalRatingRemarkCell
+        );
+
+        calculateModalFinalRating('edit');
+        modal.style.display = 'flex';
+      }
+
+      function updateParticipantTableScore(employeeCode, preTestCell, postTestCell, finalRatingCell, finalRatingRemarkCell, finalRating) {
+          preTestCell.textContent = document.getElementById(`edit-pre-test-score`).value || '';
+          postTestCell.textContent = document.getElementById(`edit-post-test-score`).value || '';
+          
+          if (finalRating.value && !isNaN(parseFloat(finalRating.value))) {
+              finalRatingCell.textContent = `${parseFloat(finalRating.value).toFixed(2)}%`;
+          } else {
+              finalRatingCell.textContent = '';
+          }
+          finalRatingRemarkCell.textContent = finalRating.remark || '';
+      }
+
+      function saveEditParticipantScores(participant, preTestCell, postTestCell, finalRatingCell, finalRatingRemarkCell) {
+        const preTestScore = document.getElementById('edit-pre-test-score').value;
+        const postTestScore = document.getElementById('edit-post-test-score').value;
+        const finalRating = document.getElementById('edit-final-rating-value').value;
+        const finalRatingRemark = document.getElementById('edit-final-rating-remark').value;
+
+        preTestCell.textContent = preTestScore;
+        postTestCell.textContent = postTestScore;
+        finalRatingCell.textContent = finalRating;
+        finalRatingRemarkCell.textContent = finalRatingRemark;
+
+        const updatedScores = {
+            pretestscore: preTestScore,
+            pretesttotalitems: document.getElementById('edit-pre-test-total').value,
+            posttestscore: postTestScore,
+            posttesttotalitems: document.getElementById('edit-post-test-total').value,
+            finalrating: finalRating.replace('%', ''),
+            finalratingremark: finalRatingRemark
+        };
+        Object.assign(participant, updatedScores);
+
+        closeEditParticipantScoresModal();
+      }
+
+      function closeEditParticipantScoresModal() {
+        document.getElementById('edit-participant-scores-modal').style.display = 'none';
+      }
+
+      document.getElementById('edit-add-employee-btn').addEventListener('click', () => {
+        const employeeCode = document.getElementById('edit-add-employee-btn').dataset.employeeCode;
+        if (!employeeCode) return;
+        
+        const employee = allEmployees.find(emp => emp.employeeCode.toString() === employeeCode);
+        if (!employee) return;
+        
+        if (editedParticipants.toAdd[employeeCode] || document.querySelector(`#edit-participants-table tr[data-employee-code="${employeeCode}"]:not(.is-deleted)`)) {
+            alert('This participant is already on the list.');
+            return;
+        }
+
+        const newParticipant = {
+            employeecode: employee.employeeCode,
+            employeename: employee.employeeName,
+            plant: employee.workLocation,
+            companyname: employee.companyName,
+            position: employee.position,
+            fabu: employee.fabu,
+            dept: employee.dept,
+            completionstatus: 'Completed',
+            passed: 'YES',
+            employmenttype: ''
+        };
+        editedParticipants.toAdd[employeeCode] = newParticipant;
+        
+        addParticipantToEditTable(newParticipant, true);
+        
+        document.getElementById('edit-employee-search-input').value = '';
+        document.getElementById('edit-add-employee-btn').disabled = true;
+      });
+
+      document.getElementById('edit-employee-search-input').addEventListener('input', (e) => handleEmployeeSearch(e.target.value, 'edit-employee-search-dropdown', 'edit-add-employee-btn'));
+
+      document.getElementById('save-edit-btn').addEventListener('click', () => {
+        const form = document.getElementById('edit-training-form');
+        if (!form.checkValidity()) { return alert('Please fill out all required fields.'); }
+        
+        const updatedTrainingDetails = {};
+        formFields.forEach(field => {
+            const element = document.getElementById('edit-' + field.id);
+            if (element) {
+                updatedTrainingDetails[field.key] = element.value;
+            }
+        });
+
+        const dateParts = updatedTrainingDetails.datestarted.split('-');
+        updatedTrainingDetails.datestarted = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
+
+        const finalParticipantList = [];
+        const participantsTableRows = document.querySelectorAll('#edit-participants-table tbody tr');
+
+        participantsTableRows.forEach(row => {
+            if (row.classList.contains('is-deleted')) {
+                return;
+            }
+
+            const empCode = row.dataset.employeeCode;
+
+            let participantDataSource = currentParticipants.find(p => p.employeecode.toString() === empCode);
+            if (!participantDataSource) {
+                participantDataSource = editedParticipants.toAdd[empCode] || {}; 
+            }
+
+            if (participantDataSource) {
+                const recordToSend = { ...participantDataSource };
+
+                recordToSend.completionstatus = row.querySelector('select[name="completionstatus"]').value;
+                recordToSend.passed = row.querySelector('select[name="passed"]').value;
+                recordToSend.employmenttype = row.querySelector('select[name="employmenttype"]').value;
+
+                finalParticipantList.push(recordToSend);
+            }
+        });
+
+        setButtonLoading(document.getElementById('save-edit-btn'), 'Saving...');
+        google.script.run
+            .withSuccessHandler(res => {
+                setButtonLoaded(document.getElementById('save-edit-btn'), 'Save Changes');
+                showStatusMessage('records', res.message, 'success');
+                closeEditTrainingModal();
+            })
+            .withFailureHandler(err => {
+                setButtonLoaded(document.getElementById('save-edit-btn'), 'Save Changes');
+                showStatusMessage('records', `Error: ${err.message}`, 'error');
+            })
+            .updateTrainingRecord(updatedTrainingDetails, finalParticipantList);
+      });
+      
+      function deleteTrainingSession(encodedRecord) {
+        if (!confirm('Are you sure you want to delete this entire training session and all its records? This action cannot be undone.')) {
+            return;
+        }
+        const record = JSON.parse(atob(encodedRecord));
+        google.script.run
+            .withSuccessHandler(res => {
+                showStatusMessage('records', res.message, 'success');
+                document.getElementById('records-course-input').value = '';
+                document.getElementById('records-date-input').value = '';
+                document.getElementById('records-date-input').disabled = true;
+                document.getElementById('records-search-btn').disabled = true;
+                document.getElementById('records-table').querySelector('tbody').innerHTML = `<tr><td colspan="7" style="text-align: center;">Record deleted. Select a training from the dropdowns to view others.</td></tr>`;
+                loadAllCourses();
+            })
+            .withFailureHandler(err => {
+                showStatusMessage('records', `Error: ${err.message}`, 'error');
+            })
+            .deleteTrainingRecord(record);
+      }
+
+      // --- FINAL UPDATED FUNCTIONS FOR MANUAL ENTRY ---
+      function setupDynamicDropdown(inputId, dropdownId, dataKey) {
+        const input = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropdownId);
+        const data = referenceData[dataKey] || [];
+        const selectContainer = input.closest('.select-container');
+        const modalContent = input.closest('.modal-content');
+        
+        populateDropdown(dropdown, data);
+        const openDropdown = () => {
+            if (modalContent) {
+                modalContent.querySelectorAll('.select-container').forEach(c => c.style.zIndex = '2');
+            }
+            selectContainer.style.zIndex = '3';
+            filterDropdown(input, dropdown, data);
+            dropdown.classList.add('open');
+        };
+        input.oninput = openDropdown;
+        input.onfocus = openDropdown;
+        input.onblur = () => {
+          setTimeout(() => {
+            dropdown.classList.remove('open');
+            selectContainer.style.zIndex = '2';
+          }, 200);
+        };
+        dropdown.onmousedown = (e) => selectOption(e, input, dropdown);
+      }
+      
+      function openManualEntryModal(context) {
+        manualEntryContext = context;
+        document.getElementById('manual-entry-modal').style.display = 'flex';
+        
+        // Setup all dynamic dropdowns for the modal
+        setupDynamicDropdown('manual-plant-input', 'manual-plant-dropdown', 'PLANT');
+        setupDynamicDropdown('manual-company-input', 'manual-company-dropdown', 'COMPANY NAME');
+        setupDynamicDropdown('manual-position-input', 'manual-position-dropdown', 'POSITION');
+        setupDynamicDropdown('manual-fabu-input', 'manual-fabu-dropdown', 'FA/BU');
+        setupDynamicDropdown('manual-dept-input', 'manual-dept-dropdown', 'DEPT');
+      }
+
+      function closeManualEntryModal() {
+        document.getElementById('manual-entry-modal').style.display = 'none';
+        const form = document.getElementById('manual-entry-modal');
+        form.querySelector('#manual-emp-code').value = '';
+        form.querySelector('#manual-last-name').value = '';
+        form.querySelector('#manual-first-name').value = '';
+        form.querySelector('#manual-middle-name').value = '';
+        form.querySelector('#manual-plant-input').value = '';
+        form.querySelector('#manual-company-input').value = '';
+        form.querySelector('#manual-position-input').value = '';
+        form.querySelector('#manual-fabu-input').value = '';
+        form.querySelector('#manual-dept-input').value = '';
+        manualEntryContext = '';
+      }
+
+      function handleSaveManualEntry() {
+        const empCode = document.getElementById('manual-emp-code').value.trim();
+        const lastName = document.getElementById('manual-last-name').value.trim();
+        const firstName = document.getElementById('manual-first-name').value.trim();
+        const middleName = document.getElementById('manual-middle-name').value.trim();
+        const plant = document.getElementById('manual-plant-input').value.trim();
+        const companyName = document.getElementById('manual-company-input').value.trim();
+        const position = document.getElementById('manual-position-input').value.trim();
+        const fabu = document.getElementById('manual-fabu-input').value.trim();
+        const dept = document.getElementById('manual-dept-input').value.trim();
+
+        if (!empCode || !lastName || !firstName || !plant || !companyName || !position || !fabu || !dept) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        const fullName = `${lastName}, ${firstName} ${middleName}`.trim();
+
+        const newEmployee = {
+            employeeCode: empCode,
+            employeeName: fullName,
+            workLocation: plant,
+            companyName: companyName,
+            position: position,
+            fabu: fabu,
+            dept: dept,
+            active: 'YES'
+        };
+
+        if (manualEntryContext === 'batch') {
+            addParticipantToBatchTable(newEmployee);
+        } else if (manualEntryContext === 'edit') {
+            if (editedParticipants.toAdd[empCode] || document.querySelector(`#edit-participants-table tr[data-employee-code="${empCode}"]:not(.is-deleted)`)) {
+                alert('This participant is already on the list.');
+                return;
+            }
+
+            const newParticipant = {
+                employeecode: newEmployee.employeeCode,
+                employeename: newEmployee.employeeName,
+                plant: newEmployee.workLocation,
+                companyname: newEmployee.companyName,
+                position: newEmployee.position,
+                fabu: newEmployee.fabu,
+                dept: newEmployee.dept,
+                completionstatus: 'Completed',  
+                passed: 'YES',
+                employmenttype: '' 
+            };
+            editedParticipants.toAdd[empCode] = newParticipant;
+            addParticipantToEditTable(newParticipant, true);
+        }
+
+        closeManualEntryModal();
+      }
+
+    </script>
+  </body>
+</html>
