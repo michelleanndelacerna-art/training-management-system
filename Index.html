@@ -445,7 +445,7 @@
         <div class="modal-body">
           <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
             <div class="form-group" style="grid-column: 1 / -1;">
-              <label for="manual-emp-code" class="required">Employee Code</label>
+              <label for="manual-emp-code">Employee Code</label>
               <input type="text" id="manual-emp-code">
             </div>
             <div class="form-group">
@@ -2023,7 +2023,7 @@
         const fabu = document.getElementById('manual-fabu-input').value.trim();
         const dept = document.getElementById('manual-dept-input').value.trim();
 
-        if (!empCode || !lastName || !firstName || !plant || !companyName || !position || !fabu || !dept) {
+        if (!lastName || !firstName || !plant || !companyName || !position || !fabu || !dept) {
             alert('Please fill in all required fields.');
             return;
         }
