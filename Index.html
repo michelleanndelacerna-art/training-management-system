@@ -1227,17 +1227,17 @@
       }
 
       function addParticipantToBatchTable(employee) {
-        if (!employee || !employee.employeeCode) return;
+        if (!employee || !employee.trackingId) return;
 
-        if (employeeRecords[employee.employeeCode]) {
+        if (employeeRecords[employee.trackingId]) {
             alert('This participant is already on the list.');
             return;
         }
 
-        employeeRecords[employee.employeeCode] = employee;
+        employeeRecords[employee.trackingId] = employee;
         const tableBody = document.getElementById('selected-employees-table').querySelector('tbody');
         const newRow = tableBody.insertRow();
-        newRow.dataset.employeeCode = employee.employeeCode;
+        newRow.dataset.employeeCode = employee.trackingId;
 
         newRow.insertCell(); // For the "No." column
         newRow.insertCell().textContent = employee.employeeCode;
@@ -1680,7 +1680,8 @@
       function addParticipantToEditTable(participant, isNew = false) {
           const tableBody = document.getElementById('edit-participants-table').querySelector('tbody');
           const newRow = tableBody.insertRow();
-          newRow.dataset.employeeCode = participant.employeecode;
+          const trackingId = participant.trackingId || participant.employeecode;
+          newRow.dataset.employeeCode = trackingId;
           if (isNew) {
               newRow.classList.add('is-new');
           }
@@ -1861,6 +1862,7 @@
 
         const newParticipant = {
             employeecode: employee.employeeCode,
+            trackingId: employee.employeeCode, // Use employeeCode as the trackingId for scanned employees
             employeename: employee.employeeName,
             plant: employee.workLocation,
             companyname: employee.companyName,
@@ -2029,9 +2031,11 @@
         }
 
         const fullName = `${lastName}, ${firstName} ${middleName}`.trim();
+        const trackingId = empCode ? empCode : `MANUAL_${Date.now()}`;
 
         const newEmployee = {
             employeeCode: empCode,
+            trackingId: trackingId,
             employeeName: fullName,
             workLocation: plant,
             companyName: companyName,
@@ -2044,13 +2048,14 @@
         if (manualEntryContext === 'batch') {
             addParticipantToBatchTable(newEmployee);
         } else if (manualEntryContext === 'edit') {
-            if (editedParticipants.toAdd[empCode] || document.querySelector(`#edit-participants-table tr[data-employee-code="${empCode}"]:not(.is-deleted)`)) {
+            if (editedParticipants.toAdd[trackingId] || document.querySelector(`#edit-participants-table tr[data-employee-code="${trackingId}"]:not(.is-deleted)`)) {
                 alert('This participant is already on the list.');
                 return;
             }
 
             const newParticipant = {
                 employeecode: newEmployee.employeeCode,
+                trackingId: newEmployee.trackingId,
                 employeename: newEmployee.employeeName,
                 plant: newEmployee.workLocation,
                 companyname: newEmployee.companyName,
@@ -2061,7 +2066,7 @@
                 passed: 'YES',
                 employmenttype: '' 
             };
-            editedParticipants.toAdd[empCode] = newParticipant;
+            editedParticipants.toAdd[trackingId] = newParticipant;
             addParticipantToEditTable(newParticipant, true);
         }
 
